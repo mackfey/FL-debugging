@@ -1,0 +1,37 @@
+<project name="bug1" default="package" basedir=".">
+    <import file="maven-build.xml"/>
+    <import file="../lib/fl.build.xml"/>
+
+    <path id="build.test.classpath">
+        <pathelement location="${easymock.jar}" />
+        <pathelement location="../lib/junit-4.11.jar"/>
+        <pathelement location="../lib/easymock.jar"/>
+    </path>
+
+    <path id="test.classpath">                                                                
+        <path refid="build.test.classpath"/>                                     
+        <pathelement location="${maven.build.outputDir}"/>
+        <pathelement location="${maven.build.testOutputDir}"/>                   
+    </path> 
+
+    <path id="compile.classpath">                                                                
+        <path refid="build.classpath"/>                                     
+    </path> 
+
+    <target name="test" depends="compile-tests" description="Run all tests">
+        <junit printSummary="yes" haltonfailure="true" fork="true" dir=".">
+            <sysproperty key="basedir" value="."/>
+            <formatter type="brief" usefile="false"/>
+            <classpath>
+                <path refid="build.test.classpath"/>
+                <pathelement location="${maven.build.outputDir}"/>
+                <pathelement location="${maven.build.testOutputDir}"/>
+            </classpath>
+            <batchtest todir="${maven.test.reports}" unless="test">
+                <fileset dir="${maven.build.testDir.0}">
+                    <include name="**/*Test*.java"/>
+                </fileset>
+            </batchtest>
+        </junit>
+    </target>
+</project>

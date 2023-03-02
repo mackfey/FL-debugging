@@ -1,0 +1,176 @@
+<project name="Fault-localization" default="fault-localization" xmlns:gzoltar="antlib:com.gzoltar.ant">
+
+    <property name="gzoltar.version" value="v1.7.2" />
+    <property name="gzoltar.report.dir" location="." />
+    <property name="gzoltar.exec.file" location="${maven.build.dir}/gzoltar.exec" />
+    <property name="gzoltar-ant.jar" value="../lib/gzoltarant-${gzoltar.version}.jar" />
+    <property name="gzoltar-cli.jar" value="../lib/gzoltarcli-${gzoltar.version}.jar" />
+    <property name="lines-utility.jar" value="../lib/locs-to-stms-current.jar" />
+
+    <!-- Import GZoltar Ant tasks -->
+    <taskdef uri="antlib:com.gzoltar.ant" resource="antlib.xml">
+        <classpath path="${gzoltar-ant.jar}" />
+    </taskdef>
+
+    <target name="fault-localization" depends="compile-tests" description="Run unit tests and perform fault localization">
+        <fail message="Property maven.build.dir not set!" unless="maven.build.dir" />
+        <fail message="Property maven.build.outputDir not set!" unless="maven.build.outputDir" />
+        <fail message="Property maven.build.testOutputDir not set!" unless="maven.build.testOutputDir" />
+        <fail message="Property maven.build.srcDir.0 not set!" unless="maven.build.srcDir.0" />
+
+        <fail message="Property gzoltar-ant.jar not set!" unless="gzoltar-ant.jar" />
+        <fail message="Property gzoltar-cli.jar not set!" unless="gzoltar-cli.jar" />
+        <fail message="Property lines-utility.jar not set!" unless="lines-utility.jar" />
+        <fail message="Property gzoltar.exec.file not set!" unless="gzoltar.exec.file" />
+        <fail message="Property gzoltar.report.dir not set!" unless="gzoltar.report.dir" />
+
+        <!-- 1. Get list of all test method(s) to run -->
+        <echo message="Get list of all test method(s) to run" />
+        <property name="test.methods.file" value="${maven.build.dir}/_gz_test_methods.txt"/>
+        <delete file="${test.methods.file}" />
+        <java classname="com.gzoltar.cli.Main" fork="true">
+            <classpath>
+                <path refid="build.test.classpath"/>
+                <pathelement location="${maven.build.outputDir}"/>
+                <pathelement location="${maven.build.testOutputDir}"/>
+                <pathelement path="${gzoltar-cli.jar}" />
+            </classpath>
+            <arg value="listTestMethods" />
+            <arg value="${maven.build.testOutputDir}" />
+            <arg value="--outputFile" />
+            <arg value="${test.methods.file}" />
+            <arg value="--includes" />
+            <arg value="*" /> <!-- TODO consider *all* test classes? -->
+        </java>
+        <fail message="${test.methods.file} not found!"><condition><not><available file="${test.methods.file}"/></not></condition></fail>
+
+        <!-- 2. Get coverage of the pre-selected list of test method(s) -->
+        <echo message="Collect coverage of each test method" />
+        <delete file="${gzoltar.exec.file}"/>
+        <gzoltar:coverage destfile="${gzoltar.exec.file}"
+                          buildLocation="${maven.build.outputDir}"
+                          includes="*"
+                          excludes=""
+                          exclClassLoader="sun.reflect.DelegatingClassLoader"
+                          inclNoLocationClasses="false"
+                          output="file"> <!-- TODO collect coverage for *all* classes? -->
+            <java classname="com.gzoltar.cli.Main" fork="true">
+                <classpath>
+                    <path refid="build.test.classpath"/>
+                    <pathelement location="${maven.build.outputDir}"/>
+                    <pathelement location="${maven.build.testOutputDir}"/>
+                    <pathelement path="${gzoltar-ant.jar}" />
+                    <pathelement path="${gzoltar-cli.jar}" />
+                </classpath>
+                <jvmArg value="-XX:MaxPermSize=2048M" />
+                <arg value="runTestMethods" />
+                <arg value="--testMethods" />
+                <arg value="${test.methods.file}" />
+                <arg value="--collectCoverage" />
+            </java>
+        </gzoltar:coverage>
+        <fail message="${gzoltar.exec.file} not found!"><condition><not><available file="${gzoltar.exec.file}"/></not></condition></fail>
+
+        <!-- 3. Compute a statement based fault-localization ranking -->
+        <echo message="Compute fault-localization ranking" />
+        <mkdir dir="${gzoltar.report.dir}" />
+        <gzoltar:fl-report buildLocation="${maven.build.outputDir}"
+                           granularity="line"
+                           inclPublicMethods="true"
+                           inclStaticConstructors="true"
+                           inclDeprecatedMethods="true"
+                           dataFile="${gzoltar.exec.file}"
+                           outputDirectory="${gzoltar.report.dir}">
+            <flFamilies>
+                <flFamily name="sfl">
+                    <formulas>
+                        <formula name="tarantula" />
+                    </formulas>
+                    <metrics>
+                        <metric name="coverage" />
+                    </metrics>
+                    <formatters>
+                        <txt />
+                        <html views="sunburst:vertical_partition" />
+                    </formatters>
+                </flFamily>
+            </flFamilies>
+        </gzoltar:fl-report>
+        <property name="tarantula.stmt.ranking.file" value="${gzoltar.report.dir}/sfl/txt/tarantula.ranking.csv"/>
+        <fail message="${tarantula.stmt.ranking.file} not found!"><condition><not><available file="${tarantula.stmt.ranking.file}"/></not></condition></fail>
+
+        <!-- 4. Compute a line based fault-localization ranking -->
+        <property name="tarantula.line.ranking.file" value="${gzoltar.report.dir}/sfl/txt/line.tarantula.ranking.csv"/>
+        <property name="source.code.lines.file" value="${maven.build.dir}/source_code_lines.txt"/>
+        <delete file="${source.code.lines.file}" />
+        <java classname="com.gzoltar.locstostms.Main" fork="true">
+            <classpath>
+                <pathelement path="${lines-utility.jar}" />
+            </classpath>
+            <arg value="locstostms" />
+            <!-- Bug 1 -->
+            <arg value="org.apache.commons.lang3.math.Fraction" />
+            <arg value="org.apache.commons.lang3.math.IEEE754rUtils" />
+            <arg value="org.apache.commons.lang3.math.NumberUtils" />
+            <arg value="org.apache.commons.lang3.StringUtils" />
+            <arg value="org.apache.commons.lang3.SystemUtils" />
+            <!-- Bug 2 -->
+            <arg value="org.apache.commons.lang3.ArrayUtils" />
+            <arg value="org.apache.commons.lang3.BitField" />
+            <arg value="org.apache.commons.lang3.BooleanUtils" />
+            <arg value="org.apache.commons.lang3.builder.EqualsBuilder" />
+            <arg value="org.apache.commons.lang3.builder.HashCodeBuilder" />
+            <arg value="org.apache.commons.lang3.builder.ToStringBuilder" />
+            <arg value="org.apache.commons.lang3.builder.ToStringStyle" />
+            <arg value="org.apache.commons.lang3.CharEncoding" />
+            <arg value="org.apache.commons.lang3.CharRange" />
+            <arg value="org.apache.commons.lang3.CharSequenceUtils" />
+            <arg value="org.apache.commons.lang3.CharSet" />
+            <arg value="org.apache.commons.lang3.CharSetUtils" />
+            <arg value="org.apache.commons.lang3.CharUtils" />
+            <arg value="org.apache.commons.lang3.ClassUtils" />
+            <arg value="org.apache.commons.lang3.EnumUtils" />
+            <arg value="org.apache.commons.lang3.exception.CloneFailedException" />
+            <arg value="org.apache.commons.lang3.LocaleUtils" />
+            <arg value="org.apache.commons.lang3.mutable.MutableObject" />
+            <arg value="org.apache.commons.lang3.ObjectUtils" />
+            <arg value="org.apache.commons.lang3.Pair" />
+            <arg value="org.apache.commons.lang3.RandomStringUtils" />
+            <arg value="org.apache.commons.lang3.Range" />
+            <arg value="org.apache.commons.lang3.SerializationException" />
+            <arg value="org.apache.commons.lang3.SerializationUtils" />
+            <arg value="org.apache.commons.lang3.StringEscapeUtils" />
+            <arg value="org.apache.commons.lang3.text.translate.AggregateTranslator" />
+            <arg value="org.apache.commons.lang3.text.translate.CharSequenceTranslator" />
+            <arg value="org.apache.commons.lang3.text.translate.CodePointTranslator" />
+            <arg value="org.apache.commons.lang3.text.translate.EntityArrays" />
+            <arg value="org.apache.commons.lang3.text.translate.LookupTranslator" />
+            <arg value="org.apache.commons.lang3.text.translate.NumericEntityUnescaper" />
+            <arg value="org.apache.commons.lang3.text.translate.UnicodeEscaper" />
+            <arg value="org.apache.commons.lang3.text.translate.UnicodeUnescaper" />
+            <arg value="org.apache.commons.lang3.text.WordUtils" />
+            <arg value="org.apache.commons.lang3.Validate" />
+            <!-- Bug 3 -->
+            <arg value="org.apache.commons.lang.math.DoubleRange" />
+            <arg value="org.apache.commons.lang.math.FloatRange" />
+            <arg value="org.apache.commons.lang.math.Fraction" />
+            <arg value="org.apache.commons.lang.math.IntRange" />
+            <arg value="org.apache.commons.lang.math.JVMRandom" />
+            <arg value="org.apache.commons.lang.math.LongRange" />
+            <arg value="org.apache.commons.lang.math.NumberRange" />
+            <arg value="org.apache.commons.lang.math.NumberUtils" />
+            <arg value="org.apache.commons.lang.math.RandomUtils" />
+            <arg value="org.apache.commons.lang.math.Range" />
+            <arg value="org.apache.commons.lang.StringUtils" />
+            <arg value="org.apache.commons.lang.SystemUtils" />
+            <arg value="--srcDirs" />
+            <arg value="${maven.build.srcDir.0}" />
+            <arg value="--outputFile" />
+            <arg value="${source.code.lines.file}" />
+        </java>
+        <exec dir="." executable="python" failonerror="true">
+            <arg line="../lib/statement-suspiciousness-to-source_code_line-suspiciousness.py --stmt-susps-file ${tarantula.stmt.ranking.file} --source-code-lines-file ${source.code.lines.file} --output-file ${tarantula.line.ranking.file} " />
+        </exec>
+        <fail message="${tarantula.line.ranking.file} not found!"><condition><not><available file="${tarantula.line.ranking.file}"/></not></condition></fail>
+    </target>
+</project>

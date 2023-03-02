@@ -1,0 +1,108 @@
+<project name="bug3" default="compile" basedir=".">
+    <property file="${basedir}/build.properties"/>
+    <property file="${basedir}/default.properties"/>
+
+    <property name="maven.build.dir" value="${build.home}"/>
+    <property name="maven.build.outputDir" value="${build.home}/classes"/>
+    <property name="maven.build.testOutputDir" value="${build.home}/tests"/>
+    <property name="maven.build.srcDir.0" value="src/java"/>
+    <import file="../lib/fl.build.xml"/>
+
+    <path id="compile.classpath">
+        <pathelement location="${build.home}/classes"/>
+    </path>
+
+    <path id="build.test.classpath">
+        <pathelement location="${build.home}/classes"/>
+        <pathelement location="${build.home}/tests"/>
+        <pathelement location="../lib/junit-4.11.jar"/>
+    </path>
+<!-- ####################################################################### -->
+    <target name="test" depends="compile-tests" description="Run all tests">
+        <junit printSummary="yes" haltonfailure="true" fork="true" dir=".">
+            <sysproperty key="basedir" value="."/>
+            <formatter type="brief" usefile="false"/>
+            <classpath>
+                <path refid="build.test.classpath"/>
+            </classpath>
+            <batchtest unless="test">
+                <fileset dir="src/test">
+                    <include name="**/*Test.java"/>
+                    <exclude name="**/Abstract*.java"/>
+                    <include name="**/NumberUtilsTest2.java"/>
+                </fileset>
+            </batchtest>
+        </junit>
+    </target>
+
+    <target name="compile" depends="static"
+                    description="Compile shareable components">
+        <javac  srcdir="${source.home}"
+                destdir="${build.home}/classes"
+                debug="${compile.debug}"
+                deprecation="${compile.deprecation}"
+                target="${compile.target}"
+                source="${compile.source}"
+                excludes="${compile.excludes}"
+                optimize="${compile.optimize}"
+                encoding="ISO-8859-1"
+                nowarn="true">
+            <classpath refid="compile.classpath"/>
+        </javac>
+        <copy todir="${build.home}/classes" filtering="on">
+            <fileset dir="${source.home}" excludes="**/*.java"/>
+        </copy>
+    </target>
+
+    <target name="compile-tests" depends="compile"
+                    description="Compile unit test cases">
+        <javac  srcdir="${test.home}"
+                destdir="${build.home}/tests"
+                debug="${compile.debug}"
+                deprecation="off"
+                target="${compile.target}"
+                source="${compile.source}"
+                optimize="${compile.optimize}"
+                encoding="ISO-8859-1"
+                nowarn="true">
+            <classpath refid="build.test.classpath"/>
+        </javac>
+        <copy todir="${build.home}/tests" filtering="on">
+            <fileset dir="${test.home}" excludes="**/*.java"/>
+        </copy>
+    </target>
+
+    <target name="clean" description="Clean build and distribution directories">
+        <delete dir="${build.home}"/>
+        <delete dir="${dist.home}"/>
+        <delete dir=".instrumented"/>
+        <delete dir="${dir.cov.fail}"/>
+        <delete dir="${dir.cov.pass}"/>
+        <delete file="cobertura.ser"/>
+        <delete file="cobertura.init"/>
+        <delete dir="${basedir}/sfl"/>
+    </target>
+
+    <target name="init" description="Initialize and evaluate conditionals">
+        <echo message="-------- ${component.name} ${component.version} --------"/>
+        <filter token="name" value="${component.name}"/>
+        <filter token="package" value="${component.package}"/>
+        <filter token="version" value="${component.version}"/>
+        <filter token="compile.source" value="${compile.source}"/>
+        <filter token="compile.target" value="${compile.target}"/>
+    </target>
+
+    <target name="prepare" depends="init" description="Prepare build directory">
+        <mkdir dir="${build.home}"/>
+        <mkdir dir="${build.home}/classes"/>
+        <mkdir dir="${build.home}/conf"/>
+        <mkdir dir="${build.home}/tests"/>
+    </target>
+
+    <target name="static" depends="prepare" description="Copy static files to build directory">
+        <tstamp/>
+        <copy todir="${build.home}/conf" filtering="on">
+            <fileset dir="${conf.home}" includes="*.MF"/>
+        </copy>
+    </target>
+</project>
