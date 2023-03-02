@@ -6,7 +6,7 @@ reproducible bug.
 
 Requirements
 ------------
-All bugs can be reproduced under Java 8, Java 11, and Java 17.
+All bugs can be reproduced under Java 17.
 
 Testing
 -------
