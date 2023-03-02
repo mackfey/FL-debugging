@@ -314,7 +314,7 @@ public final class RandomUtilsTest extends TestCase {
         }
 
         try {
-            JVMRandom.nextLong( -1L );
+            RandomUtils.JVM_RANDOM.nextLong( -1L );
             fail("expecting IllegalArgumentException");
         } catch (IllegalArgumentException ex) {
             // empty
