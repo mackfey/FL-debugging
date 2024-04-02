@@ -8,7 +8,7 @@ software testing best practices that support effective debugging.
 
 1. Make sure that you have
    [Apache Ant](http://ant.apache.org/),
-   a [Java 17](https://www.oracle.com/java/technologies/downloads/) JDK, and
+   a [Java 17 or 21 JDK](https://www.oracle.com/java/technologies/downloads/), and
    [git](https://git-scm.com/) installed.
 
 2. Test your setup by running `ant clean test` in each of the bug directories
