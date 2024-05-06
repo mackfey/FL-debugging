@@ -74,10 +74,10 @@
            debug="true" 
            optimize="false" 
            deprecation="false" 
-           target="1.7" 
+           target="1.8" 
            verbose="false" 
            fork="false" 
-           source="1.7"
+           source="1.8"
            nowarn="true">
       <src>
         <pathelement location="${maven.build.srcDir.0}"/>
@@ -107,10 +107,10 @@
            debug="true" 
            optimize="false" 
            deprecation="false" 
-           target="1.7" 
+           target="1.8" 
            verbose="false" 
            fork="false" 
-           source="1.7"
+           source="1.8"
            nowarn="true">
       <src>
         <pathelement location="${maven.build.testDir.0}"/>
@@ -206,7 +206,7 @@
              nonavbar="false" 
              serialwarn="false" 
              charset="ISO-8859-1" 
-             source="1.7" 
+             source="1.8" 
              linksource="true" 
              breakiterator="false">
       <link href="http://java.sun.com/javase/6/docs/api/"/>
